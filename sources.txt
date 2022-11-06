@@ -1,0 +1,10 @@
+CUR:
+    https://www.pnas.org/doi/10.1073/pnas.0803205106
+    https://personal.math.vt.edu/embree/cur_talk.pdf
+    https://www.sciencedirect.com/science/article/pii/S1319157819302460
+    https://ojs.s-p.sg/index.php/met/article/download/1185/pdf
+    https://www.researchgate.net/publication/361981603_Cross_Tensor_Approximation_for_Image_and_Video_Completion
+    https://www.youtube.com/watch?v=xoA5v9AO7S0&list=PLLssT5z_DsK9JDLcT8T62VtzwyW9LNepV  [L45-L55]
+    https://arxiv.org/pdf/1407.5516.pdf
+    https://arxiv.org/pdf/1303.4207.pdf
+
