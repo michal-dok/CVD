@@ -57,10 +57,6 @@ class CVD:
         k = rank
         Ar = np.dot(U[:, :k], np.dot(np.diag(S[:k]), VT[:k, :]))
 
-        #Ar = np.zeros((len(U), len(VT)))
-        #for i in range(rank):
-        #    Ar += S[i] * np.outer(U[i], VT[i])
-
         self.approx_matrix = Ar
         print("approx done!")
 
