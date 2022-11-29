@@ -4,3 +4,6 @@ Postupne rSVD \
 
 Format komprimovanych dat \
     - opatovne rozklad? 
+
+
+http://compbio.fmph.uniba.sk/vyuka/bcinf/index.php/D%C3%9A1
