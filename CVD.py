@@ -1,5 +1,4 @@
 import numpy as np
-import numpy.linalg as LA
 import cv2
 from sklearn.utils.extmath import randomized_svd as rSVD
 
@@ -16,6 +15,8 @@ class CVD:
         self.frame_rows = None
         self.frame_cols = None
         self.fps = None
+
+        self.SVD = None
 
 
     def encode(self, path):
@@ -47,19 +48,58 @@ class CVD:
         video_matrix = np.array(vid, order='c').T
         self.video_matrix = video_matrix
         print(self.video_matrix.shape)
+        np.savez_compressed("videomoat", vm=video_matrix.astype(int))
 
 
-    def approx(self, rank=50):
-        print("approx ...")
-        U, S, VT = LA.svd(self.video_matrix, False)
-        print("SVD done!")
+    def approx(self, p=0.9, step=50):
+        matrix = self.video_matrix.copy().astype(float)
+        sigma_sum = 0               # sucet zahrnuteho spektra
+        sigmas_pred = 1             # odhad na sucet celeho spektra
+        n_rows, n_cols= matrix.shape
+        bottleneck = (n_rows * n_cols) / (n_rows + n_cols + 1)
 
-        k = rank
-        Ar = np.dot(U[:, :k], np.dot(np.diag(S[:k]), VT[:k, :]))
+        n = min(n_rows, n_cols)
+        k = 0
 
-        self.approx_matrix = Ar
-        print("approx done!")
+        result = np.zeros_like(matrix).astype(float)
+        print(type(result))
 
+        res_u, res_s, res_vt = None, None, None
+
+        while (sigma_sum / sigmas_pred) < p:
+            # print("accuracy pred:", sigma_sum / sigmas_pred)
+            print('-', end='')
+            U, S, VT = rSVD(matrix.copy(), step, random_state=None)
+            k += step
+            sigma_sum += sum(S)
+            sigmas_pred = sigma_sum + min(S) * (n - k)
+            approx = U @ (VT * S[:, None])
+            result += approx
+            matrix -= approx
+
+            if res_u is None:
+                res_u, res_s, res_vt = U, S, VT
+            else:
+                res_u = np.concatenate((res_u, U), axis=1)
+                res_s = np.concatenate((res_s, S))
+                res_vt = np.concatenate((res_vt, VT))
+
+            if k > bottleneck:
+                print(f"COMPRESSION INEFFICIENT at rank = {k}")
+
+
+        print()
+        print(k)
+        print("result accuracy pred:", sigma_sum / sigmas_pred)
+        self.SVD = res_u, res_s, res_vt
+        return res_u, res_s, res_vt
+
+    def write_compressed(self, filename):
+        print("video shape", self.video_matrix.shape)
+        u, s, vt = self.SVD
+        s = np.ravel(s)
+        print("compressed shape", u.shape, s.shape, vt.shape)
+        np.savez_compressed(filename, U=u, S=s, VT=vt)
 
     def decode(self, matrix):
         print("decoding ...")
@@ -70,6 +110,8 @@ class CVD:
             cr = np.around(cr*self.rCr)
             cb = np.around(cb*self.rCb)
             YCrCb_im = np.dstack([vec.reshape(self.frame_rows, self.frame_cols) for vec in (y, cr, cb)])
+
+            # TODO rovnomerna transformacia do 8bit
             YCrCb_im[YCrCb_im <= 0] = 0
             YCrCb_im[YCrCb_im >= 255] = 255
             YCrCb_im = (np.rint(YCrCb_im)).astype(np.uint8)
@@ -82,7 +124,7 @@ class CVD:
         self.decoded_video = decoded
         print("decoded")
 
-    def write(self, filename):
+    def write_mp4(self, filename):
         print(f"saving to {filename}")
         out = cv2.VideoWriter(filename, cv2.VideoWriter_fourcc(*'mp4v'), round(self.fps), (self.frame_cols, self.frame_rows))
         frames = self.decoded_video
@@ -95,12 +137,13 @@ class CVD:
 if __name__ == "__main__":
     rate = (2, 4, 4)
     rank = 50
-    output_name = f"compressd_rate-{''.join(str(num) for num in rate)}_rank-{rank}.mp4"
+    #output_name = f"compressd_rate-{''.join(str(num) for num in rate)}_rank-{rank}.mp4"
     cvd = CVD(*rate)
     cvd.encode("coko.webm")
-    cvd.approx(rank=rank)
-    cvd.decode(cvd.approx_matrix)
-    cvd.write(output_name)
+    res = cvd.approx(p=0.5)
+    cvd.write_compressed("compresz")
+    #cvd.decode(cvd.approx_matrix)
+    #cvd.write_mp4(output_name)
 
 
 
