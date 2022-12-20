@@ -4,11 +4,11 @@
 Otázky na konzultácie:
  - Postupne rSVD 
     - ako efektivne volit krok
+ - Skusit namiesto rozneho nasobenia Y a CrCb komponentov oddelit ic do matic a aproximovat s inym thresholdom
 
 
 Odkazy:
- - Úvodný text a kostra (zadanie)
-http://compbio.fmph.uniba.sk/vyuka/bcinf/index.php/D%C3%9A1
+
 
 
 TODO:
@@ -16,3 +16,5 @@ TODO:
  - otestovat spravanie SVD ak prenasobim nejaku suvislu cast matice 
 (napr hornu tretinu)
  - zakomponovat funkcie z rSVD_demo do hlavneho CVD programu
+ 
+ - Skusit namiesto rozneho nasobenia Y a CrCb komponentov oddelit ic do matic a aproximovat s inym thresholdom
