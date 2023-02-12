@@ -36,9 +36,12 @@ class CVD:
             if ret:
                 YCrCb_im = cv2.cvtColor(frame, cv2.COLOR_BGR2YCR_CB)
                 y, cr, cb = cv2.split(YCrCb_im)
-                y //= self.rY
-                cr //= self.rCr
-                cb //= self.rCb
+                y = y.astype(np.float64)
+                cr = cr.astype(np.float64)
+                cb = cb.astype(np.float64)
+                y /= self.rY
+                cr /= self.rCr
+                cb /= self.rCb
                 if self.frame_rows is None and self.frame_cols is None:
                     self.frame_rows, self.frame_cols = y.shape
                     print(self.frame_rows, self.frame_cols)
@@ -48,21 +51,23 @@ class CVD:
         video_matrix = np.array(vid, order='c').T
         self.video_matrix = video_matrix
         print(self.video_matrix.shape)
-        np.savez_compressed("videomoat", vm=video_matrix.astype(int))
+        #np.savez_compressed("videomat", vm=video_matrix.astype(int))
 
 
     def approx(self, p=0.9, step=50):
         matrix = self.video_matrix.copy().astype(float)
+        #print("calculating norm")
+        #norm = np.linalg.norm(matrix.astype(int))
+        #print("norm done", norm)
         sigma_sum = 0               # sucet zahrnuteho spektra
         sigmas_pred = 1             # odhad na sucet celeho spektra
-        n_rows, n_cols= matrix.shape
+        n_rows, n_cols = matrix.shape
         bottleneck = (n_rows * n_cols) / (n_rows + n_cols + 1)
 
         n = min(n_rows, n_cols)
         k = 0
 
         result = np.zeros_like(matrix).astype(float)
-        print(type(result))
 
         res_u, res_s, res_vt = None, None, None
 
@@ -72,7 +77,8 @@ class CVD:
             U, S, VT = rSVD(matrix.copy(), step, random_state=None)
             k += step
             sigma_sum += sum(S)
-            sigmas_pred = sigma_sum + min(S) * (n - k)
+            minS = S[-1]
+            sigmas_pred = sigma_sum + minS * (n - k)
             approx = U @ (VT * S[:, None])
             result += approx
             matrix -= approx
@@ -99,28 +105,62 @@ class CVD:
         u, s, vt = self.SVD
         s = np.ravel(s)
         print("compressed shape", u.shape, s.shape, vt.shape)
-        np.savez_compressed(filename, U=u, S=s, VT=vt)
+        print(s)
+        datatype = np.uint
+        us = u * s
+        print(us.min(), vt.min())
+        us = us.astype(int)
+        #svt = vt * s[:, None]
+        #svt = svt.astype(int)
+        #u = (u*1000).astype(int)
+        #s = s.astype(np.uint)
+        vt = (vt*1000).astype(int)
+        #eps = np.finfo(datatype).eps
+        #u[u == 0] = eps
+        #s[s == 0] = eps
+        #vt[vt == 0] = eps
 
-    def decode(self, matrix):
+        #print(s)
+        #np.savez_compressed(filename, U=u, S=s, VT=vt)
+        #np.savez_compressed(filename, U=u, SVT=svt)
+        np.savez_compressed(filename, US=us, VT=vt)
+
+
+    def decode(self, matrix=None):
         print("decoding ...")
+        if matrix is None:
+            SVD_load = np.load("./video/compresz.npz")
+            dtp = np.float64
+            #U = SVD_load['U'].astype(dtp)/10000 + np.finfo(dtp).eps
+            #S = SVD_load['S'].astype(dtp) + np.finfo(dtp).eps
+            US = SVD_load['US'].astype(dtp) + np.finfo(dtp).eps
+            VT = SVD_load['VT'].astype(dtp)/1000 + np.finfo(dtp).eps
+            #SVT = SVD_load['SVT']
+            #print(U)
+            #print(S)
+            #matrix = U @ (VT * S[:, None])
+            matrix = US @ VT
+            #matrix = U @ SVT
+
         decoded = []
         for col in matrix.T:
             y, cr, cb = np.array_split(col, 3)
-            y = np.around(y*self.rY)
-            cr = np.around(cr*self.rCr)
-            cb = np.around(cb*self.rCb)
+            y = np.around(y * self.rY)
+            cr = np.around(cr * self.rCr)
+            cb = np.around(cb * self.rCb)
+            #print(y)
             YCrCb_im = np.dstack([vec.reshape(self.frame_rows, self.frame_cols) for vec in (y, cr, cb)])
 
             # TODO rovnomerna transformacia do 8bit
             YCrCb_im[YCrCb_im <= 0] = 0
             YCrCb_im[YCrCb_im >= 255] = 255
             YCrCb_im = (np.rint(YCrCb_im)).astype(np.uint8)
-            #cv2.imshow('FrameYCC', YCrCb_im)
-            #cv2.waitKey(0)
+            cv2.imshow('FrameYCC', YCrCb_im)
+            cv2.waitKey(0)
             bgr_im = cv2.cvtColor(YCrCb_im, cv2.COLOR_YCrCb2BGR)
             decoded.append(bgr_im)
-            #cv2.imshow('Frame', bgr_im)
-            #cv2.waitKey(0)
+            cv2.imshow('Frame', bgr_im)
+            cv2.waitKey(0)
         self.decoded_video = decoded
         print("decoded")
 
@@ -135,13 +175,16 @@ class CVD:
 
 
 if __name__ == "__main__":
-    rate = (2, 4, 4)
+    rate = (4, 16, 16)
     rank = 50
     #output_name = f"compressd_rate-{''.join(str(num) for num in rate)}_rank-{rank}.mp4"
     cvd = CVD(*rate)
-    cvd.encode("coko.webm")
+
+    cvd.encode("./video/coko.webm")
+
     res = cvd.approx(p=0.5)
-    cvd.write_compressed("compresz")
+    cvd.write_compressed("./video/compresz")
+    cvd.decode()
     #cvd.decode(cvd.approx_matrix)
     #cvd.write_mp4(output_name)
 
